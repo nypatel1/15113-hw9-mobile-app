@@ -13,7 +13,11 @@ export function formatDuration(totalSeconds: number): string {
 }
 
 export function getTodayDate(): string {
-  return new Date().toISOString().split('T')[0];
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function formatDateLabel(dateStr: string): string {
@@ -22,7 +26,10 @@ export function formatDateLabel(dateStr: string): string {
 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  if (dateStr === yesterday.toISOString().split('T')[0]) return 'Yesterday';
+  const yYear = yesterday.getFullYear();
+  const yMonth = String(yesterday.getMonth() + 1).padStart(2, '0');
+  const yDay = String(yesterday.getDate()).padStart(2, '0');
+  if (dateStr === `${yYear}-${yMonth}-${yDay}`) return 'Yesterday';
 
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString(undefined, {

@@ -23,8 +23,12 @@ export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadSessions = useCallback(async () => {
-    const data = await getSessions();
-    setSessions(data);
+    try {
+      const data = await getSessions();
+      setSessions(data);
+    } catch {
+      Alert.alert('Load failed', 'Could not load sessions from storage.');
+    }
   }, []);
 
   useFocusEffect(
@@ -49,8 +53,12 @@ export default function HistoryScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await deleteSession(session.id);
-            await loadSessions();
+            try {
+              await deleteSession(session.id);
+              await loadSessions();
+            } catch {
+              Alert.alert('Delete failed', 'Could not delete the session.');
+            }
           },
         },
       ]
@@ -74,8 +82,8 @@ export default function HistoryScreen() {
   const subjectTotals = new Map<string, number>();
   let weeklyTotal = 0;
   for (const s of sessions) {
-    subjectTotals.set(s.subject, (subjectTotals.get(s.subject) ?? 0) + s.durationSeconds);
     if (isWithinLastSevenDays(s.date)) {
+      subjectTotals.set(s.subject, (subjectTotals.get(s.subject) ?? 0) + s.durationSeconds);
       weeklyTotal += s.durationSeconds;
     }
   }
@@ -98,7 +106,7 @@ export default function HistoryScreen() {
             </ThemedText>
 
             {hasData && (
-              <ThemedView style={styles.summaryCard}>
+              <ThemedView style={[styles.summaryCard, { borderColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]}>
                 <ThemedText type="subtitle" style={styles.summaryTitle}>
                   Weekly Summary (Last 7 Days)
                 </ThemedText>

@@ -13,7 +13,12 @@ export interface StudySession {
 
 export async function getSessions(): Promise<StudySession[]> {
   const data = await AsyncStorage.getItem(SESSIONS_KEY);
-  return data ? JSON.parse(data) : [];
+  if (!data) return [];
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
 }
 
 export async function saveSessions(sessions: StudySession[]): Promise<void> {
@@ -33,7 +38,12 @@ export async function deleteSession(id: string): Promise<void> {
 
 export async function getSubjects(): Promise<string[]> {
   const data = await AsyncStorage.getItem(SUBJECTS_KEY);
-  return data ? JSON.parse(data) : [];
+  if (!data) return [];
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
 }
 
 export async function addSubject(subject: string): Promise<void> {

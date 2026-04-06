@@ -97,6 +97,12 @@ export default function TimerScreen() {
     };
 
     try {
+      const today = getTodayDate();
+      const existing = await getSessions();
+      const preSaveTotal = existing
+        .filter((s) => s.date === today)
+        .reduce((sum, s) => sum + s.durationSeconds, 0);
+
       await addSession(session);
       await addSubject(trimmed);
       setRecentSubjects((prev) =>
@@ -104,24 +110,16 @@ export default function TimerScreen() {
       );
       setElapsedSeconds(0);
       setSubject('');
-      await checkMilestone();
+
+      const postSaveTotal = preSaveTotal + duration;
+      if (preSaveTotal < MILESTONE_THRESHOLD && postSaveTotal >= MILESTONE_THRESHOLD) {
+        const hours = (postSaveTotal / 3600).toFixed(1);
+        setMilestoneMessage(
+          `You've studied ${hours} hours today! Keep it up!`
+        );
+      }
     } catch (e) {
       Alert.alert('Save failed', String(e));
-    }
-  }
-
-  async function checkMilestone() {
-    const today = getTodayDate();
-    const sessions = await getSessions();
-    const todayTotal = sessions
-      .filter((s) => s.date === today)
-      .reduce((sum, s) => sum + s.durationSeconds, 0);
-
-    if (todayTotal >= MILESTONE_THRESHOLD) {
-      const hours = (todayTotal / 3600).toFixed(1);
-      setMilestoneMessage(
-        `You've studied ${hours} hours today! Keep it up!`
-      );
     }
   }
 
