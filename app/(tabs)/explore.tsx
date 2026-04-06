@@ -1,14 +1,27 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, RefreshControl, SectionList, StyleSheet } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  RefreshControl,
+  SectionList,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Palette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { deleteSession, getSessions, StudySession } from '@/utils/storage';
-import { formatDateLabel, formatDuration, isWithinLastSevenDays } from '@/utils/helpers';
+import {
+  formatDateLabel,
+  formatDuration,
+  isWithinLastSevenDays,
+  withAlpha,
+} from '@/utils/helpers';
 
 interface SectionData {
   title: string;
@@ -18,6 +31,8 @@ interface SectionData {
 export default function HistoryScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const textColor = useThemeColor({}, 'text');
+  const isDark = colorScheme === 'dark';
 
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,8 +90,9 @@ export default function HistoryScreen() {
       dateMap.set(s.date, [s]);
     }
   }
-  for (const [date, data] of dateMap) {
-    sections.push({ title: formatDateLabel(date), data });
+  const sortedDates = Array.from(dateMap.keys()).sort((a, b) => b.localeCompare(a));
+  for (const date of sortedDates) {
+    sections.push({ title: formatDateLabel(date), data: dateMap.get(date)! });
   }
 
   const subjectTotals = new Map<string, number>();
@@ -96,91 +112,118 @@ export default function HistoryScreen() {
         sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        stickySectionHeadersEnabled={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
         ListHeaderComponent={
-          <ThemedView>
+          <View>
             <ThemedText type="title" style={styles.screenTitle}>
               History
             </ThemedText>
+            <Text style={[styles.screenSub, { color: colors.textSecondary }]}>
+              Your study sessions at a glance
+            </Text>
 
             {hasData && (
-              <ThemedView style={[styles.summaryCard, { borderColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]}>
-                <ThemedText type="subtitle" style={styles.summaryTitle}>
-                  Weekly Summary (Last 7 Days)
-                </ThemedText>
-                <ThemedText style={[styles.weeklyTotal, { color: colors.tint }]}>
+              <View
+                style={[
+                  styles.summaryCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+                  LAST 7 DAYS
+                </Text>
+                <Text style={[styles.weeklyTotal, { color: colors.tint }]}>
                   {formatDuration(weeklyTotal)}
-                </ThemedText>
+                </Text>
 
-                <ThemedView style={styles.subjectList}>
+                {subjectTotals.size > 0 && (
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                )}
+
+                <View style={styles.subjectList}>
                   {Array.from(subjectTotals.entries()).map(([subj, total]) => (
-                    <ThemedView key={subj} style={styles.subjectRow}>
-                      <ThemedText style={styles.subjectName} numberOfLines={1}>
+                    <View key={subj} style={styles.subjectRow}>
+                      <View
+                        style={[
+                          styles.subjectDot,
+                          { backgroundColor: colors.tint },
+                        ]}
+                      />
+                      <Text
+                        style={[styles.subjectName, { color: textColor }]}
+                        numberOfLines={1}
+                      >
                         {subj}
-                      </ThemedText>
-                      <ThemedText style={[styles.subjectTime, { color: colors.tint }]}>
+                      </Text>
+                      <Text style={[styles.subjectTime, { color: colors.tint }]}>
                         {formatDuration(total)}
-                      </ThemedText>
-                    </ThemedView>
+                      </Text>
+                    </View>
                   ))}
-                </ThemedView>
-              </ThemedView>
+                </View>
+              </View>
             )}
 
             {hasData && (
-              <ThemedText type="subtitle" style={styles.sessionsHeading}>
+              <Text style={[styles.sessionsHeading, { color: textColor }]}>
                 All Sessions
-              </ThemedText>
+              </Text>
             )}
-          </ThemedView>
+          </View>
         }
         renderSectionHeader={({ section }) => (
-          <ThemedView
-            style={[
-              styles.sectionHeader,
-              { backgroundColor: colorScheme === 'dark' ? '#1a1c1e' : '#f0f0f0' },
-            ]}
-          >
-            <ThemedText style={styles.sectionHeaderText}>{section.title}</ThemedText>
-          </ThemedView>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionHeaderText, { color: colors.textSecondary }]}>
+              {section.title}
+            </Text>
+          </View>
         )}
         renderItem={({ item }) => (
           <Pressable
             onLongPress={() => handleLongPress(item)}
+            accessibilityLabel={`${item.subject}, ${formatDuration(item.durationSeconds)}. Long press to delete`}
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.sessionRow,
               {
                 backgroundColor: pressed
-                  ? colorScheme === 'dark'
-                    ? '#2a2c2e'
-                    : '#eaeaea'
-                  : 'transparent',
+                  ? withAlpha(colors.tint, 0.08)
+                  : colors.surface,
+                borderColor: pressed ? colors.tint : colors.border,
               },
             ]}
           >
-            <ThemedView style={styles.sessionInfo}>
-              <ThemedText style={styles.sessionSubject}>{item.subject}</ThemedText>
-              <ThemedText style={styles.sessionTime}>
+            <View style={styles.sessionInfo}>
+              <Text style={[styles.sessionSubject, { color: textColor }]}>
+                {item.subject}
+              </Text>
+              <Text style={[styles.sessionTime, { color: colors.textSecondary }]}>
                 {new Date(item.startTime).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
-              </ThemedText>
-            </ThemedView>
-            <ThemedText style={[styles.sessionDuration, { color: colors.tint }]}>
+              </Text>
+            </View>
+            <Text style={[styles.sessionDuration, { color: colors.tint }]}>
               {formatDuration(item.durationSeconds)}
-            </ThemedText>
+            </Text>
           </Pressable>
         )}
         ListEmptyComponent={
-          <ThemedView style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyText}>No study sessions yet.</ThemedText>
-            <ThemedText style={styles.emptySubtext}>
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: textColor }]}>
+              No study sessions yet
+            </Text>
+            <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
               Start a timer on the Timer tab to begin tracking!
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
         }
       />
     </SafeAreaView>
@@ -195,33 +238,49 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 40,
   },
+
   screenTitle: {
-    marginBottom: 20,
+    marginBottom: 4,
   },
+  screenSub: {
+    fontSize: 15,
+    marginBottom: 24,
+  },
+
   summaryCard: {
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    padding: 20,
+    marginBottom: 28,
   },
-  summaryTitle: {
-    fontSize: 16,
-    marginBottom: 8,
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
   weeklyTotal: {
     fontSize: 36,
     fontWeight: '300',
     fontVariant: ['tabular-nums'],
-    marginBottom: 16,
+    lineHeight: 44,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 16,
   },
   subjectList: {
-    gap: 8,
+    gap: 10,
   },
   subjectRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  subjectDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 10,
   },
   subjectName: {
     fontSize: 15,
@@ -233,33 +292,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
+
   sessionsHeading: {
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
   },
+
   sectionHeader: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
     marginTop: 8,
   },
   sectionHeaderText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
-    opacity: 0.7,
   },
+
   sessionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
   },
   sessionInfo: {
     flex: 1,
     marginRight: 12,
-    backgroundColor: 'transparent',
   },
   sessionSubject: {
     fontSize: 16,
@@ -267,14 +330,14 @@ const styles = StyleSheet.create({
   },
   sessionTime: {
     fontSize: 13,
-    opacity: 0.5,
     marginTop: 2,
   },
   sessionDuration: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
+
   emptyContainer: {
     alignItems: 'center',
     paddingTop: 60,
@@ -285,8 +348,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptySubtext: {
-    fontSize: 14,
-    opacity: 0.5,
+    fontSize: 15,
     textAlign: 'center',
   },
 });

@@ -47,3 +47,18 @@ export function isWithinLastSevenDays(dateStr: string): boolean {
   const d = new Date(dateStr + 'T00:00:00');
   return d >= start;
 }
+
+/** Safely apply alpha to any hex color (3- or 6-digit). */
+export function withAlpha(hex: string, alpha: number): string {
+  let r: number, g: number, b: number;
+  if (hex.length === 4) {
+    r = parseInt(hex[1] + hex[1], 16);
+    g = parseInt(hex[2] + hex[2], 16);
+    b = parseInt(hex[3] + hex[3], 16);
+  } else {
+    r = parseInt(hex.slice(1, 3), 16);
+    g = parseInt(hex.slice(3, 5), 16);
+    b = parseInt(hex.slice(5, 7), 16);
+  }
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}

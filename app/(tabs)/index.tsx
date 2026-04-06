@@ -16,11 +16,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { Colors, Palette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { addSession, addSubject, getSessions, getSubjects, StudySession } from '@/utils/storage';
-import { formatDuration, generateId, getTodayDate } from '@/utils/helpers';
+import { formatDuration, generateId, getTodayDate, withAlpha } from '@/utils/helpers';
 
 const MIN_SESSION_SECONDS = 10;
 const MILESTONE_THRESHOLD = 3600;
@@ -127,16 +127,6 @@ export default function TimerScreen() {
     (s) => subject.trim() === '' || s.toLowerCase().includes(subject.toLowerCase())
   );
 
-  const ringBorder = isRunning
-    ? colors.tint
-    : isDark
-      ? '#2a2d30'
-      : '#e8e8e8';
-
-  const ringBg = isRunning
-    ? (isDark ? colors.tint + '10' : colors.tint + '08')
-    : 'transparent';
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
@@ -146,6 +136,9 @@ export default function TimerScreen() {
         {/* Header */}
         <View style={styles.header}>
           <ThemedText type="title">Study Timer</ThemedText>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
+            Focus on what matters
+          </Text>
         </View>
 
         {/* Subject area */}
@@ -157,16 +150,18 @@ export default function TimerScreen() {
                   styles.input,
                   {
                     color: textColor,
-                    borderColor: isDark ? '#333' : '#e0e0e0',
-                    backgroundColor: isDark ? '#1c1e20' : '#f7f7f8',
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
                   },
                 ]}
                 placeholder="What are you studying?"
-                placeholderTextColor={colors.icon}
+                placeholderTextColor={colors.textSecondary}
                 value={subject}
                 onChangeText={setSubject}
                 returnKeyType="done"
                 onSubmitEditing={Keyboard.dismiss}
+                accessibilityLabel="Subject name"
+                accessibilityHint="Enter the subject you want to study"
               />
               {filteredRecents.length > 0 && (
                 <ScrollView
@@ -179,12 +174,11 @@ export default function TimerScreen() {
                   {filteredRecents.map((s) => (
                     <TouchableOpacity
                       key={s}
-                      style={[
-                        styles.chip,
-                        { backgroundColor: isDark ? '#1c1e20' : '#f0f0f2' },
-                      ]}
+                      style={[styles.chip, { backgroundColor: colors.surface }]}
                       onPress={() => setSubject(s)}
                       activeOpacity={0.7}
+                      accessibilityLabel={`Select ${s}`}
+                      accessibilityRole="button"
                     >
                       <Text style={[styles.chipText, { color: textColor }]}>{s}</Text>
                     </TouchableOpacity>
@@ -193,7 +187,12 @@ export default function TimerScreen() {
               )}
             </>
           ) : (
-            <View style={[styles.badge, { backgroundColor: colors.tint + '15' }]}>
+            <View
+              style={[
+                styles.badge,
+                { backgroundColor: withAlpha(colors.tint, 0.12) },
+              ]}
+            >
               <View style={[styles.badgeDot, { backgroundColor: colors.tint }]} />
               <Text style={[styles.badgeText, { color: colors.tint }]}>
                 {subject.trim()}
@@ -202,12 +201,17 @@ export default function TimerScreen() {
           )}
         </View>
 
-        {/* Timer ring — this is the hero */}
+        {/* Timer ring */}
         <View style={styles.timerArea}>
           <View
             style={[
               styles.timerRing,
-              { borderColor: ringBorder, backgroundColor: ringBg },
+              {
+                borderColor: isRunning ? colors.tint : colors.border,
+                backgroundColor: isRunning
+                  ? withAlpha(colors.tint, 0.06)
+                  : 'transparent',
+              },
             ]}
           >
             <Text
@@ -215,12 +219,14 @@ export default function TimerScreen() {
                 styles.timerText,
                 { color: isRunning ? colors.tint : textColor },
               ]}
+              accessibilityLabel={`Elapsed time: ${formatDuration(elapsedSeconds)}`}
+              accessibilityRole="timer"
             >
               {formatDuration(elapsedSeconds)}
             </Text>
           </View>
           {!isRunning && elapsedSeconds === 0 && (
-            <Text style={[styles.hint, { color: colors.icon }]}>
+            <Text style={[styles.hint, { color: colors.textSecondary }]}>
               {subject.trim() ? 'Ready when you are' : 'Pick a subject to begin'}
             </Text>
           )}
@@ -229,9 +235,14 @@ export default function TimerScreen() {
         {/* Bottom controls */}
         <View style={styles.bottomArea}>
           {milestoneMessage && (
-            <View style={[styles.milestone, { backgroundColor: isDark ? '#0d2618' : '#eafaf1' }]}>
+            <View
+              style={[
+                styles.milestone,
+                { backgroundColor: withAlpha(Palette.green, isDark ? 0.15 : 0.1) },
+              ]}
+            >
               <Text style={styles.milestoneEmoji}>&#127881;</Text>
-              <Text style={[styles.milestoneText, { color: '#27ae60' }]}>
+              <Text style={[styles.milestoneText, { color: Palette.green }]}>
                 {milestoneMessage}
               </Text>
             </View>
@@ -239,13 +250,16 @@ export default function TimerScreen() {
 
           <Pressable
             onPress={isRunning ? handleStop : handleStart}
+            accessibilityLabel={isRunning ? 'Stop study session' : 'Start study session'}
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.button,
               {
-                backgroundColor: isRunning ? '#e74c3c' : colors.tint,
+                backgroundColor: isRunning ? Palette.red : colors.tint,
                 opacity: pressed ? 0.9 : 1,
                 transform: [{ scale: pressed ? 0.98 : 1 }],
               },
+              !isDark && styles.buttonShadow,
             ]}
           >
             <Text style={styles.buttonText}>
@@ -265,17 +279,21 @@ const styles = StyleSheet.create({
 
   header: {
     paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  headerSub: {
+    fontSize: 15,
+    marginTop: 4,
   },
 
   subjectArea: {
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 20,
   },
   input: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
@@ -363,11 +381,18 @@ const styles = StyleSheet.create({
   },
   button: {
     paddingVertical: 18,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
   },
+  buttonShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   buttonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
     lineHeight: 22,
